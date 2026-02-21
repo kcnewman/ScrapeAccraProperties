@@ -63,6 +63,15 @@ PLAYWRIGHT_CONTEXTS = {
     }
 }
 
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+
+PLAYWRIGHT_CONTEXTS = {
+    "default": {
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "viewport": {"width": 1280, "height": 720},
+    }
+}
+
 # --- PERFORMANCE  ---
 CONCURRENT_REQUESTS = 20
 CONCURRENT_REQUESTS_PER_DOMAIN = 15
