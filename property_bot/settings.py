@@ -1,0 +1,79 @@
+import sys
+import asyncio
+import warnings
+import logging
+import pathlib
+
+BOT_NAME = "property_bot"
+SPIDER_MODULES = ["property_bot.spiders"]
+NEWSPIDER_MODULE = "property_bot.spiders"
+
+ADDONS = {}
+ROBOTSTXT_OBEY = True
+
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+warnings.filterwarnings("ignore", category=RuntimeWarning, module="asyncio")
+
+LOG_ENABLED = False
+logging.getLogger("asyncio").setLevel(logging.CRITICAL)
+logging.getLogger("scrapy").setLevel(logging.ERROR)
+logging.getLogger("playwright").setLevel(logging.ERROR)
+
+# --- DIRECTORY SETUP ---
+PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
+URL_SAVE_DIR = PROJECT_ROOT / "outputs" / "urls"
+DATA_SAVE_DIR = PROJECT_ROOT / "outputs" / "data"
+URL_SAVE_DIR.mkdir(parents=True, exist_ok=True)
+DATA_SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+# --- PLAYWRIGHT CORE SETTINGS ---
+DOWNLOAD_HANDLERS = {
+    "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+    "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
+}
+TWISTED_REACTOR = "twisted.internet.asyncioreactor.AsyncioSelectorReactor"
+
+
+def should_abort_request(req):
+    return req.resource_type in ["image", "media", "font", "stylesheet", "other"]
+
+
+PLAYWRIGHT_ABORT_REQUEST = should_abort_request
+
+PLAYWRIGHT_BROWSER_TYPE = "chromium"
+PLAYWRIGHT_LAUNCH_OPTIONS = {
+    "headless": True,
+    "args": [
+        "--disable-gpu",
+        "--disable-dev-shm-usage",
+        "--no-sandbox",
+        "--disable-setuid-sandbox",
+    ],
+}
+
+PLAYWRIGHT_CONTEXTS = {
+    "default": {
+        "ignore_https_errors": True,
+        "bypass_csp": True,
+        "java_script_enabled": True,
+        "accept_downloads": False,
+    }
+}
+
+# --- PERFORMANCE  ---
+CONCURRENT_REQUESTS = 20
+CONCURRENT_REQUESTS_PER_DOMAIN = 15
+DOWNLOAD_TIMEOUT = 30
+PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 30000
+
+AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_START_DELAY = 0.1
+AUTOTHROTTLE_MAX_DELAY = 2
+AUTOTHROTTLE_TARGET_CONCURRENCY = 10.0
+
+RETRY_TIMES = 1
+RETRY_HTTP_CODES = [500, 502, 503, 504, 408, 429]
+COOKIES_ENABLED = False
