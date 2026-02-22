@@ -1,26 +1,18 @@
-import scrapy
 import csv
 import os
 import pathlib
+import scrapy
 from datetime import datetime
 from .base_spider import PropertyBaseSpider
 from scrapy_playwright.page import PageMethod
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
-SAVE_DIR = PROJECT_ROOT / "outputs" / "data"
-SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class MeqasaListingSpider(PropertyBaseSpider):
     name = "meqasa_listings"
-
-    custom_settings = {
-        "FEEDS": {
-            os.path.join(
-                SAVE_DIR, f"meqasa_data{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            ): {"format": "csv"},
-        },
-    }
+    OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "meqasa_data.csv"
+    URL_FIELD = "URL"  # meqasa items use "URL" (uppercase) as the key
 
     def __init__(self, csv_path="outputs/urls/meqasa_urls.csv", *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -60,21 +52,15 @@ class MeqasaListingSpider(PropertyBaseSpider):
             data = {
                 "URL": response.url,
                 "Title": response.css("h1::text").get("").strip(),
-                "Price": response.css(".price-wrapper > div:nth-child(1)::text")
-                .get("")
-                .strip(),
-                "Rate": response.css(".price-wrapper > div:nth-child(2)::text")
-                .get("")
-                .strip(),
+                "Price": response.css(".price-wrapper > div:nth-child(1)::text").get("").strip(),
+                "Rate": response.css(".price-wrapper > div:nth-child(2)::text").get("").strip(),
             }
 
             for row in response.css("table.table tr"):
                 header = row.css("td[style*='font-weight: bold']::text, th::text").get()
                 if not header:
                     continue
-                values = row.css(
-                    "td:nth-child(2) ::text, td:nth-child(2) li::text"
-                ).getall()
+                values = row.css("td:nth-child(2) ::text, td:nth-child(2) li::text").getall()
                 data[header.strip().rstrip(":")] = ", ".join(
                     v.strip() for v in values if v.strip()
                 )
@@ -82,12 +68,10 @@ class MeqasaListingSpider(PropertyBaseSpider):
             desc = response.css(".description p::text").get()
             data["Description"] = desc.strip() if desc else "Description not found"
 
-            self.scraped_count += 1
-            self.update_ui(
-                current_page=self.scraped_count, total_pages=self.total_count
-            )
+            self._collected_items.append(data)
 
-            yield data
+            self.scraped_count += 1
+            self.update_ui(current_page=self.scraped_count, total_pages=self.total_count)
 
         except Exception as e:
             self.failures += 1

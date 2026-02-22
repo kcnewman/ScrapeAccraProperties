@@ -1,27 +1,19 @@
-import os
+import asyncio
 import pathlib
 import scrapy
 import csv
-import asyncio
+import os
 from scrapy_playwright.page import PageMethod
 from datetime import datetime
 from .base_spider import PropertyBaseSpider
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
-SAVE_DIR = PROJECT_ROOT / "outputs" / "data"
-SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 class JijiListingSpider(PropertyBaseSpider):
     name = "jiji_listings"
-
-    custom_settings = {
-        "FEEDS": {
-            os.path.join(
-                SAVE_DIR, f"jiji_data{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-            ): {"format": "csv"},
-        },
-    }
+    OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "jiji_data.csv"
+    URL_FIELD = "url"
 
     def __init__(self, csv_path="outputs/urls/jiji_urls.csv", *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -97,13 +89,9 @@ class JijiListingSpider(PropertyBaseSpider):
                 elif not house_type:
                     house_type = detail.strip()
 
-            house_type = (
-                house_type or properties.get("Subtype") or properties.get("Type")
-            )
+            house_type = house_type or properties.get("Subtype") or properties.get("Type")
             bedrooms = bedrooms or properties.get("Bedrooms")
-            bathrooms = (
-                bathrooms or properties.get("Bathrooms") or properties.get("Toilets")
-            )
+            bathrooms = bathrooms or properties.get("Bathrooms") or properties.get("Toilets")
 
             amenities = []
             if page:
@@ -112,9 +100,7 @@ class JijiListingSpider(PropertyBaseSpider):
                         page.query_selector(".b-advert-attributes--tags"), timeout=1.5
                     )
                     if amenities_section:
-                        elements = await page.query_selector_all(
-                            ".b-advert-attributes__tag"
-                        )
+                        elements = await page.query_selector_all(".b-advert-attributes__tag")
                         texts = await asyncio.gather(
                             *[el.text_content() for el in elements],
                             return_exceptions=True,
@@ -133,16 +119,9 @@ class JijiListingSpider(PropertyBaseSpider):
 
             description = response.css(".qa-description-text::text").get()
 
-            self.scraped_count += 1
-            if self.scraped_count % 10 == 0:
-                self.update_ui(
-                    current_page=self.scraped_count, total_pages=self.total_count
-                )
-
-            yield {
+            item = {
                 "url": response.url,
-                "fetch_date": response.meta.get("fetch_date")
-                or datetime.now().strftime("%Y-%m-%d"),
+                "fetch_date": response.meta.get("fetch_date") or datetime.now().strftime("%Y-%m-%d"),
                 "title": title.strip() if title else None,
                 "location": location.strip() if location else None,
                 "house_type": house_type,
@@ -153,6 +132,11 @@ class JijiListingSpider(PropertyBaseSpider):
                 "amenities": amenities,
                 "description": description.strip() if description else None,
             }
+            self._collected_items.append(item)
+
+            self.scraped_count += 1
+            if self.scraped_count % 10 == 0:
+                self.update_ui(current_page=self.scraped_count, total_pages=self.total_count)
 
         except Exception as e:
             self.failures += 1

@@ -59,15 +59,17 @@ _CONTEXT_DEFAULTS = {
 }
 
 PLAYWRIGHT_CONTEXTS = {
-    "default": _CONTEXT_DEFAULTS,   # Used by listingspider + urlspider (fallback)
-    "listing": _CONTEXT_DEFAULTS,   # Used by meqasa_listings
+    "default": _CONTEXT_DEFAULTS,  # Used by listingspider + urlspider (fallback)
+    "listing": _CONTEXT_DEFAULTS,  # Used by meqasa_listings
 }
 
 PLAYWRIGHT_MAX_CONTEXTS = 10
 PLAYWRIGHT_MAX_PAGES_PER_CONTEXT = 8
 
+
 def should_abort_request(req):
     return req.resource_type in {"image", "media", "font", "stylesheet", "other"}
+
 
 PLAYWRIGHT_ABORT_REQUEST = should_abort_request
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 25000
