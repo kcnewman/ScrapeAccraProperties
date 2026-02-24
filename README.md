@@ -18,6 +18,7 @@ Data is stored in CSV files under `outputs/`.
 - Interactive terminal runner (`run.py`) to choose scraping mode and parameters
 - Parallel spider runs for Jiji and Meqasa
 - Incremental CSV persistence with URL de-duplication
+- Resume mode that scrapes only missing listings
 - Real-time Rich progress UI and per-spider summary
 
 ## Project Structure
@@ -95,6 +96,7 @@ You will see:
 
 - `1` Collect listing URLs
 - `2` Scrape listing details
+- `3` Resume and scrape only missing listings
 
 The runner allows you to configure page ranges, total listing/page limits, source CSV paths, and whether each spider should run.
 
@@ -125,6 +127,18 @@ This runs one or both listing spiders:
 - `jiji_listings` reads URL CSV (default `outputs/urls/jiji_urls.csv`) and writes `outputs/data/jiji_data.csv`
 - `meqasa_listings` reads URL CSV (default `outputs/urls/meqasa_urls.csv`) and writes `outputs/data/meqasa_data.csv`
 
+### Step 3: Resume missing listings
+
+Resume mode compares URL CSVs vs already-scraped data CSVs and only queues URLs that are not in data outputs:
+
+- Jiji compare: `outputs/urls/jiji_urls.csv` vs `outputs/data/jiji_data.csv` using `url`
+- Meqasa compare: `outputs/urls/meqasa_urls.csv` vs `outputs/data/meqasa_data.csv` using `url`
+
+Temporary queue files are generated during resume and removed after run:
+
+- `outputs/urls/jiji_resume_queue.csv`
+- `outputs/urls/meqasa_resume_queue.csv`
+
 ## Output Files
 
 The project auto-creates these folders if missing:
@@ -138,6 +152,11 @@ Typical output files:
 - `outputs/urls/meqasa_urls.csv`
 - `outputs/data/jiji_data.csv`
 - `outputs/data/meqasa_data.csv`
+
+Temporary (resume mode only):
+
+- `outputs/urls/jiji_resume_queue.csv`
+- `outputs/urls/meqasa_resume_queue.csv`
 
 ## Data Schema (Current)
 
@@ -169,7 +188,7 @@ Typical output files:
 
 ### Meqasa data CSV (key fields)
 
-- `URL`
+- `url`
 - `Title`
 - `Price`
 - `Rate`
@@ -198,11 +217,13 @@ Key behavior in `property_bot/settings.py`:
 - High concurrency + short delays
 - Request aborting for heavy assets (images/fonts/media/stylesheet)
 - Headless Chromium launch args optimized for scraping speed
+- Retries enabled for transient failures (including `403`)
 
 ## Operational Notes
 
 - Existing rows are used for URL de-duplication by each spider before writing.
 - URL and listing spiders can be launched together from the runner.
+- CSV rows are written with full quoting to reduce malformed-row issues when fields contain commas/newlines.
 - Logs are intentionally minimized in settings for cleaner terminal output.
 
 ## Troubleshooting
