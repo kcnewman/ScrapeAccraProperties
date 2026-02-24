@@ -13,7 +13,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 class MeqasaListingSpider(PropertyBaseSpider):
     name = "meqasa_listings"
     OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "meqasa_data.csv"
-    URL_FIELD = "URL"
+    URL_FIELD = "url"
 
     def __init__(self, csv_path="outputs/urls/meqasa_urls.csv", *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,7 +51,7 @@ class MeqasaListingSpider(PropertyBaseSpider):
     def parse(self, response):
         try:
             data = {
-                "URL": response.url,
+                "url": response.url,
                 "Title": response.css("h1::text").get("").strip(),
                 "Price": response.css(".price-wrapper > div:nth-child(1)::text")
                 .get("")

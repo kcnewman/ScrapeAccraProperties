@@ -4,6 +4,8 @@ import sys
 import time
 from pathlib import Path
 
+import pandas as pd
+
 os.environ.setdefault("SCRAPY_SETTINGS_MODULE", "property_bot.settings")
 from twisted.internet import asyncioreactor
 
@@ -52,6 +54,7 @@ def menu():
     t.add_column()
     t.add_row("[1]", " Collect listing URLs")
     t.add_row("[2]", " Scrape listing details")
+    t.add_row("[3]", " Resume — scrape missing listings")
     t.add_row("[q]", " Quit")
     console.print(t)
     console.print()
@@ -161,7 +164,80 @@ def collect_listing_params():
     return jobs
 
 
-def run_spiders(jobs):
+def build_resume_jobs():
+    """
+    For each site, diff the URL list against already-scraped data.
+    Writes a temp CSV of unscraped URLs and returns spider jobs for those.
+    Returns (jobs, temp_files) — caller must delete temp_files after scraping.
+    """
+    sites = [
+        {
+            "name": "Jiji",
+            "url_csv": PROJECT_ROOT / "outputs" / "urls" / "jiji_urls.csv",
+            "data_csv": PROJECT_ROOT / "outputs" / "data" / "jiji_data.csv",
+            "url_field": "url",
+            "spider": JijiListingSpider,
+            "temp": PROJECT_ROOT / "outputs" / "urls" / "jiji_resume_queue.csv",
+        },
+        {
+            "name": "Meqasa",
+            "url_csv": PROJECT_ROOT / "outputs" / "urls" / "meqasa_urls.csv",
+            "data_csv": PROJECT_ROOT / "outputs" / "data" / "meqasa_data.csv",
+            "url_field": "url",
+            "spider": MeqasaListingSpider,
+            "temp": PROJECT_ROOT / "outputs" / "urls" / "meqasa_resume_queue.csv",
+        },
+    ]
+
+    jobs, temp_files = [], []
+
+    for site in sites:
+        if not site["url_csv"].exists():
+            console.print(f"[yellow]  {site['name']}: no URL file found, skipping.[/]")
+            continue
+
+        df_urls = pd.read_csv(site["url_csv"])
+        url_col = "url"
+
+        if url_col not in df_urls.columns:
+            console.print(
+                f"[red]  {site['name']}: URL column not found in {site['url_csv'].name}[/]"
+            )
+            continue
+
+        scraped_urls = set()
+        if site["data_csv"].exists():
+            try:
+                df_data = pd.read_csv(site["data_csv"])
+                field = site["url_field"]
+                if field in df_data.columns:
+                    scraped_urls = set(df_data[field].dropna().str.strip())
+            except Exception as e:
+                console.print(
+                    f"[yellow]  {site['name']}: could not read data CSV — {e}[/]"
+                )
+
+        remaining = df_urls[~df_urls[url_col].str.strip().isin(scraped_urls)]
+
+        total = len(df_urls)
+        done = total - len(remaining)
+        console.print(
+            f"  [cyan]{site['name']}:[/] {done:,}/{total:,} scraped — "
+            f"[green]{len(remaining):,} remaining[/]"
+        )
+
+        if remaining.empty:
+            console.print(f"  [dim]{site['name']} is fully scraped.[/]")
+            continue
+
+        remaining.to_csv(site["temp"], index=False)
+        temp_files.append(site["temp"])
+        jobs.append((site["spider"], {"csv_path": str(site["temp"])}))
+
+    return jobs, temp_files
+
+
+def run_spiders(jobs, temp_files=None):
     configure_logging()
     runner = CrawlerRunner(settings=get_project_settings())
 
@@ -177,6 +253,13 @@ def run_spiders(jobs):
     crawl()
     reactor.run()  # type: ignore
 
+    for f in temp_files or []:
+        try:
+            Path(f).unlink()
+            console.print(f"[dim]  Deleted temp file: {Path(f).name}[/]")
+        except Exception:
+            pass
+
 
 def main():
     try:
@@ -186,7 +269,32 @@ def main():
             menu()
             choice = (ask("Choice", default="q") or "q").lower()
 
-            if choice in ("1", "2"):
+            if choice == "3":
+                clear_screen()
+                banner()
+                console.rule("[bold]Resume Scraper[/]", style="dim")
+                console.print()
+                jobs, temp_files = build_resume_jobs()
+
+                if not jobs:
+                    console.print(
+                        "\n[green] All listings are up to date — nothing to resume.[/]"
+                    )
+                    time.sleep(2)
+                    continue
+
+                console.print()
+                console.rule("[bold]Summary[/]", style="dim")
+                summary_table(jobs)
+                console.print()
+
+                if Confirm.ask(
+                    "[yellow]Start resuming?[/]", default=True, console=console
+                ):
+                    run_spiders(jobs, temp_files=temp_files)
+                    break
+
+            elif choice in ("1", "2"):
                 clear_screen()
                 banner()
                 jobs = (
