@@ -1,13 +1,14 @@
 import math
-import pathlib
 import re
-import scrapy
-
-from scrapy_playwright.page import PageMethod
 from datetime import datetime
+from pathlib import Path
+
+import scrapy
+from scrapy_playwright.page import PageMethod
+
 from .base_spider import PropertyBaseSpider
 
-PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 BASE_URL = "https://meqasa.com/properties-for-rent-in-Greater%20Accra-region?w={}"
 LISTINGS_PER_PAGE = 16
 
@@ -26,8 +27,10 @@ class MeqasaUrlSpider(PropertyBaseSpider):
 
     def start_requests(self):
         if self.total_pages:
-            for page in range(self.start_page, self.start_page + self.total_pages):
-                yield self._make_request(page)
+            yield from (
+                self._make_request(p)
+                for p in range(self.start_page, self.start_page + self.total_pages)
+            )
         else:
             yield self._make_request(self.start_page, is_detector=True)
 
@@ -39,7 +42,9 @@ class MeqasaUrlSpider(PropertyBaseSpider):
                 "playwright_context": "meqasa_urls",
                 "playwright_page_goto_kwargs": {"wait_until": "domcontentloaded"},
                 "playwright_page_methods": [
-                    PageMethod("wait_for_selector", ".mqs-prop-dt-wrapper", timeout=15000),
+                    PageMethod(
+                        "wait_for_selector", ".mqs-prop-dt-wrapper", timeout=15000
+                    )
                 ],
                 "current_page": page_num,
                 "is_detector": is_detector,
@@ -54,22 +59,30 @@ class MeqasaUrlSpider(PropertyBaseSpider):
 
         if response.meta.get("is_detector") and not self._detected:
             self._detected = True
-            raw_count = response.css("#headfiltercount::text").get()
-            if raw_count:
+            if raw_count := response.css("#headfiltercount::text").get():
                 total = int(re.sub(r"[^\d]", "", raw_count))
                 self.total_pages = math.ceil(total / LISTINGS_PER_PAGE)
                 self.total_count = self.total_pages
-                self.logger.info(f"Meqasa: {total:,} listings (~{self.total_pages} pages)")
-                for p in range(self.start_page + 1, self.start_page + self.total_pages):
-                    yield self._make_request(p)
+                self.logger.info(
+                    f"Meqasa: {total:,} listings (~{self.total_pages} pages)"
+                )
+                yield from (
+                    self._make_request(p)
+                    for p in range(
+                        self.start_page + 1, self.start_page + self.total_pages
+                    )
+                )
 
         today = datetime.now().strftime("%Y-%m-%d")
         for listing in response.css(".mqs-prop-dt-wrapper"):
-            href = listing.css("a::attr(href)").get()
-            if not href:
-                continue
-            item = {"url": response.urljoin(href), "page": curr_page, "fetch_date": today}
-            self.save_item(item)
-            self.scraped_count += 1
+            if href := listing.css("a::attr(href)").get():
+                self.save_item(
+                    {
+                        "url": response.urljoin(href),
+                        "page": curr_page,
+                        "fetch_date": today,
+                    }
+                )
+                self.scraped_count += 1
 
         self.update_ui(current_page=curr_page, total_pages=self.total_pages)
