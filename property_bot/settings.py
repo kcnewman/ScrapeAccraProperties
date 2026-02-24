@@ -16,7 +16,6 @@ if sys.platform == "win32":
 
 warnings.filterwarnings("ignore", category=RuntimeWarning, module="asyncio")
 
-# --- LOGGING ---
 LOG_ENABLED = False
 LOG_LEVEL = "ERROR"
 TELNETCONSOLE_ENABLED = False
@@ -24,12 +23,10 @@ logging.getLogger("asyncio").setLevel(logging.CRITICAL)
 logging.getLogger("scrapy").setLevel(logging.ERROR)
 logging.getLogger("playwright").setLevel(logging.ERROR)
 
-# --- DIRECTORY SETUP ---
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[1]
 (PROJECT_ROOT / "outputs" / "urls").mkdir(parents=True, exist_ok=True)
 (PROJECT_ROOT / "outputs" / "data").mkdir(parents=True, exist_ok=True)
 
-# --- PLAYWRIGHT CORE ---
 DOWNLOAD_HANDLERS = {
     "http": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
     "https": "scrapy_playwright.handler.ScrapyPlaywrightDownloadHandler",
@@ -49,7 +46,7 @@ PLAYWRIGHT_LAUNCH_OPTIONS = {
     ],
 }
 
-_CONTEXT_DEFAULTS = {
+_CTX = {
     "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
     "viewport": {"width": 1280, "height": 720},
     "ignore_https_errors": True,
@@ -58,13 +55,16 @@ _CONTEXT_DEFAULTS = {
     "accept_downloads": False,
 }
 
+# Each spider gets its own isolated context so they don't compete for page slots
 PLAYWRIGHT_CONTEXTS = {
-    "default": _CONTEXT_DEFAULTS,  # Used by listingspider + urlspider (fallback)
-    "listing": _CONTEXT_DEFAULTS,  # Used by meqasa_listings
+    "jiji_urls": _CTX,
+    "jiji_listings": _CTX,
+    "meqasa_urls": _CTX,
+    "meqasa_listings": _CTX,
 }
 
 PLAYWRIGHT_MAX_CONTEXTS = 10
-PLAYWRIGHT_MAX_PAGES_PER_CONTEXT = 8
+PLAYWRIGHT_MAX_PAGES_PER_CONTEXT = 12
 
 
 def should_abort_request(req):
@@ -74,7 +74,6 @@ def should_abort_request(req):
 PLAYWRIGHT_ABORT_REQUEST = should_abort_request
 PLAYWRIGHT_DEFAULT_NAVIGATION_TIMEOUT = 25000
 
-# --- CONCURRENCY ---
 CONCURRENT_REQUESTS = 32
 CONCURRENT_REQUESTS_PER_DOMAIN = 32
 DOWNLOAD_DELAY = 0.05

@@ -2,9 +2,10 @@ import csv
 import os
 import pathlib
 import scrapy
+
 from datetime import datetime
-from .base_spider import PropertyBaseSpider
 from scrapy_playwright.page import PageMethod
+from .base_spider import PropertyBaseSpider
 
 PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -12,13 +13,11 @@ PROJECT_ROOT = pathlib.Path(__file__).resolve().parents[2]
 class MeqasaListingSpider(PropertyBaseSpider):
     name = "meqasa_listings"
     OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "meqasa_data.csv"
-    URL_FIELD = "URL"  # meqasa items use "URL" (uppercase) as the key
+    URL_FIELD = "URL"
 
     def __init__(self, csv_path="outputs/urls/meqasa_urls.csv", *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.csv_path = (
-            csv_path if os.path.isabs(csv_path) else os.path.join(os.getcwd(), csv_path)
-        )
+        self.csv_path = csv_path if os.path.isabs(csv_path) else str(PROJECT_ROOT / csv_path)
         self.urls = self._load_urls()
         self.total_count = len(self.urls)
 
@@ -30,15 +29,14 @@ class MeqasaListingSpider(PropertyBaseSpider):
 
     def start_requests(self):
         if not self.urls:
-            self.logger.error(f"❌ No URLs found in {self.csv_path}")
+            self.logger.error(f"No URLs found in {self.csv_path}")
             return
-
         for url in self.urls:
             yield scrapy.Request(
                 url,
                 meta={
                     "playwright": True,
-                    "playwright_context": "listing",
+                    "playwright_context": "meqasa_listings",
                     "playwright_page_methods": [
                         PageMethod("wait_for_selector", "table.table", timeout=10000),
                     ],
@@ -55,21 +53,18 @@ class MeqasaListingSpider(PropertyBaseSpider):
                 "Price": response.css(".price-wrapper > div:nth-child(1)::text").get("").strip(),
                 "Rate": response.css(".price-wrapper > div:nth-child(2)::text").get("").strip(),
             }
-
             for row in response.css("table.table tr"):
                 header = row.css("td[style*='font-weight: bold']::text, th::text").get()
                 if not header:
                     continue
                 values = row.css("td:nth-child(2) ::text, td:nth-child(2) li::text").getall()
-                data[header.strip().rstrip(":")] = ", ".join(
-                    v.strip() for v in values if v.strip()
-                )
+                data[header.strip().rstrip(":")] = ", ".join(v.strip() for v in values if v.strip())
 
             desc = response.css(".description p::text").get()
-            data["Description"] = desc.strip() if desc else "Description not found"
+            data["Description"] = desc.strip() if desc else ""
+            data["fetch_date"] = datetime.now().strftime("%Y-%m-%d")
 
-            self._collected_items.append(data)
-
+            self.save_item(data)
             self.scraped_count += 1
             self.update_ui(current_page=self.scraped_count, total_pages=self.total_count)
 
