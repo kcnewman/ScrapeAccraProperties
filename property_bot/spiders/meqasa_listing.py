@@ -3,8 +3,6 @@ from datetime import datetime
 from pathlib import Path
 
 import scrapy
-from scrapy_playwright.page import PageMethod
-
 from .base_spider import PropertyBaseSpider
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -40,9 +38,10 @@ class MeqasaListingSpider(PropertyBaseSpider):
                 meta={
                     "playwright": True,
                     "playwright_context": "meqasa_listings",
-                    "playwright_page_methods": [
-                        PageMethod("wait_for_selector", "table.table", timeout=10000)
-                    ],
+                    "playwright_page_goto_kwargs": {
+                        "wait_until": "domcontentloaded",
+                        "timeout": 30000,
+                    },
                 },
                 callback=self.parse,
                 errback=self.errback_close_page,

@@ -84,6 +84,7 @@ class JijiUrlSpider(PropertyBaseSpider):
 
         today = datetime.now().strftime("%Y-%m-%d")
         for href in response.css("div.b-advert-listing a::attr(href)").getall():
+            href = href.strip()
             self.save_item(
                 {"url": response.urljoin(href), "page": curr_page, "fetch_date": today}
             )

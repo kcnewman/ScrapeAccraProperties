@@ -45,11 +45,8 @@ class JijiListingSpider(PropertyBaseSpider):
                     "playwright_context": "jiji_listings",
                     "playwright_page_goto_kwargs": {
                         "wait_until": "domcontentloaded",
-                        "timeout": 20000,
+                        "timeout": 30000,
                     },
-                    "playwright_page_methods": [
-                        PageMethod("wait_for_selector", "h1", timeout=8000)
-                    ],
                     "playwright_include_page": True,
                     "fetch_date": entry["fetch_date"],
                 },

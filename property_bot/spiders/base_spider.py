@@ -73,11 +73,14 @@ class PropertyBaseSpider(scrapy.Spider):
         if hasattr(self, "OUTPUT_CSV") and self.OUTPUT_CSV.exists():
             try:
                 with open(self.OUTPUT_CSV, newline="", encoding="utf-8") as f:
-                    self._seen_urls.update(
-                        row.get(self.URL_FIELD, "").strip()
-                        for row in csv.DictReader(f)
-                        if row.get(self.URL_FIELD, "").strip()
-                    )
+                    reader = csv.DictReader(f)
+                    for row in reader:
+                        try:
+                            val = row.get(self.URL_FIELD, "").strip()
+                            if val:
+                                self._seen_urls.add(val)
+                        except Exception:
+                            continue
             except Exception:
                 pass
 
@@ -120,7 +123,8 @@ class PropertyBaseSpider(scrapy.Spider):
             )
             with open(self.OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(
-                    f, fieldnames=item.keys(), extrasaction="ignore"
+                    f, fieldnames=item.keys(), extrasaction="ignore",
+                    quoting=csv.QUOTE_ALL,
                 )
                 if not file_exists:
                     writer.writeheader()

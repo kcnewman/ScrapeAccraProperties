@@ -208,10 +208,19 @@ def build_resume_jobs():
         scraped_urls = set()
         if site["data_csv"].exists():
             try:
-                df_data = pd.read_csv(site["data_csv"])
+                df_data = pd.read_csv(
+                    site["data_csv"],
+                    on_bad_lines="skip",
+                    engine="python",
+                    quoting=1,
+                )
                 field = site["url_field"]
                 if field in df_data.columns:
                     scraped_urls = set(df_data[field].dropna().str.strip())
+                else:
+                    console.print(
+                        f"[yellow]  {site['name']}: '{field}' column not found in data CSV[/]"
+                    )
             except Exception as e:
                 console.print(
                     f"[yellow]  {site['name']}: could not read data CSV — {e}[/]"
