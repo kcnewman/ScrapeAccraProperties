@@ -1382,6 +1382,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pregex"
+version = "2.3.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/14/e9/cf8331016901416d351a80b983b9a1658cae6a0f4a3ade02466555d0e2ac/pregex-2.3.3.tar.gz", hash = "sha256:ea9bfbf75b986a4b1e09a8fa78cf83607fa7a066bd6cddb4be962b5aff3726dd", size = 47827, upload-time = "2023-01-22T10:14:42.012Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/95/81/b54f3b47e5cc8df7e721b4f9c598f9355d55cc0a4a562ec561eb26395c6d/pregex-2.3.3-py3-none-any.whl", hash = "sha256:f5be01606b04321d8e626ff6ddaa1e1a4a25fdfee0d217d6c2fb2c163e29bf82", size = 46638, upload-time = "2023-01-22T10:14:40.19Z" },
+]
+
+[[package]]
 name = "prometheus-client"
 version = "0.24.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1849,6 +1858,7 @@ dependencies = [
     { name = "notebook" },
     { name = "pandas" },
     { name = "playwright" },
+    { name = "pregex" },
     { name = "rich" },
     { name = "scrapy" },
     { name = "scrapy-playwright" },
@@ -1859,6 +1869,7 @@ requires-dist = [
     { name = "notebook", specifier = ">=7.5.3" },
     { name = "pandas", specifier = ">=3.0.1" },
     { name = "playwright", specifier = ">=1.58.0" },
+    { name = "pregex", specifier = ">=2.3.3" },
     { name = "rich", specifier = ">=14.3.3" },
     { name = "scrapy", specifier = ">=2.14.1" },
     { name = "scrapy-playwright", specifier = ">=0.0.46" },

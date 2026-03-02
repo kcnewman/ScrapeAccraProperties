@@ -55,7 +55,6 @@ _CTX = {
     "accept_downloads": False,
 }
 
-# Each spider gets its own isolated context so they don't compete for page slots
 PLAYWRIGHT_CONTEXTS = {
     "jiji_urls": _CTX,
     "jiji_listings": _CTX,

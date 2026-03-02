@@ -17,6 +17,7 @@ class MeqasaUrlSpider(PropertyBaseSpider):
     name = "meqasa_urls"
     OUTPUT_CSV = PROJECT_ROOT / "outputs" / "urls" / "meqasa_urls.csv"
     URL_FIELD = "url"
+    OUTPUT_FIELDS = ("url", "page", "fetch_date")
 
     def __init__(self, start_page=1, total_pages=None, *args, **kwargs):
         super().__init__(*args, **kwargs)

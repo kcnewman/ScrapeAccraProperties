@@ -1,7 +1,9 @@
 import csv
+import json
 import threading
 import time
 from pathlib import Path
+from typing import Any
 
 import scrapy
 from rich import box
@@ -11,7 +13,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
 from scrapy import signals
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
+PROJECT_ROOT: Path = Path(__file__).resolve().parents[2]
 console = Console()
 
 
@@ -53,6 +55,7 @@ tracker = SpiderProgressTracker()
 class PropertyBaseSpider(scrapy.Spider):
     OUTPUT_CSV: Path
     URL_FIELD: str = "url"
+    OUTPUT_FIELDS: tuple[str, ...] | None = None
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -61,6 +64,9 @@ class PropertyBaseSpider(scrapy.Spider):
         self.failures = 0
         self._seen_urls = set()
         self._task_id = None
+        self._csv_fieldnames = (
+            list(self.OUTPUT_FIELDS) if self.OUTPUT_FIELDS is not None else []
+        )
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -74,6 +80,8 @@ class PropertyBaseSpider(scrapy.Spider):
             try:
                 with open(self.OUTPUT_CSV, newline="", encoding="utf-8") as f:
                     reader = csv.DictReader(f)
+                    if reader.fieldnames:
+                        self._csv_fieldnames = [k for k in reader.fieldnames if k]
                     for row in reader:
                         try:
                             val = row.get(self.URL_FIELD, "").strip()
@@ -95,6 +103,37 @@ class PropertyBaseSpider(scrapy.Spider):
             f"[cyan]▶ Starting {self.name.upper()} ({len(self._seen_urls):,} already in CSV)[/]"
         )
 
+    @staticmethod
+    def _serialize_for_csv(value: Any) -> Any:
+        if value is None:
+            return ""
+        if isinstance(value, dict):
+            return json.dumps(value, ensure_ascii=False, sort_keys=True)
+        if isinstance(value, (list, tuple, set)):
+            return json.dumps(list(value), ensure_ascii=False)
+        if isinstance(value, str):
+            return " ".join(value.split())
+        return value
+
+    def _normalize_item(self, item: dict[str, Any]) -> dict[str, Any]:
+        return {key: self._serialize_for_csv(value) for key, value in item.items()}
+
+    def _get_output_fieldnames(self, item: dict[str, Any]) -> list[str]:
+        if not self._csv_fieldnames:
+            self._csv_fieldnames = (
+                list(self.OUTPUT_FIELDS) if self.OUTPUT_FIELDS is not None else []
+            )
+        if not self._csv_fieldnames:
+            self._csv_fieldnames = list(item.keys())
+            return self._csv_fieldnames
+
+        if self.OUTPUT_FIELDS is None:
+            for key in item.keys():
+                if key not in self._csv_fieldnames:
+                    self._csv_fieldnames.append(key)
+
+        return self._csv_fieldnames
+
     def _closed(self, spider, reason):
         if self._task_id is not None:
             tracker.progress.update(
@@ -109,6 +148,7 @@ class PropertyBaseSpider(scrapy.Spider):
         if not hasattr(self, "OUTPUT_CSV"):
             return
 
+        item = self._normalize_item(item)
         url_val = str(item.get(self.URL_FIELD, "")).strip()
 
         with tracker.csv_lock:
@@ -121,10 +161,14 @@ class PropertyBaseSpider(scrapy.Spider):
             file_exists = (
                 self.OUTPUT_CSV.exists() and self.OUTPUT_CSV.stat().st_size > 0
             )
+            fieldnames = self._get_output_fieldnames(item)
             with open(self.OUTPUT_CSV, "a", newline="", encoding="utf-8") as f:
                 writer = csv.DictWriter(
-                    f, fieldnames=item.keys(), extrasaction="ignore",
-                    quoting=csv.QUOTE_ALL,
+                    f,
+                    fieldnames=fieldnames,
+                    extrasaction="ignore",
+                    quoting=csv.QUOTE_MINIMAL,
+                    lineterminator="\n",
                 )
                 if not file_exists:
                     writer.writeheader()

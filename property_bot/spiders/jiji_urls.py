@@ -17,6 +17,7 @@ class JijiUrlSpider(PropertyBaseSpider):
     name = "jiji_urls"
     OUTPUT_CSV = PROJECT_ROOT / "outputs" / "urls" / "jiji_urls.csv"
     URL_FIELD = "url"
+    OUTPUT_FIELDS = ("url", "page", "fetch_date")
 
     def __init__(
         self, start_page=1, max_pages=None, total_listing=None, *args, **kwargs

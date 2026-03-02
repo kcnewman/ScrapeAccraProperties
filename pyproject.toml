@@ -8,6 +8,7 @@ dependencies = [
     "notebook>=7.5.3",
     "pandas>=3.0.1",
     "playwright>=1.58.0",
+    "pregex>=2.3.3",
     "rich>=14.3.3",
     "scrapy>=2.14.1",
     "scrapy-playwright>=0.0.46",

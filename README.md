@@ -1,62 +1,43 @@
 # ScrapeAccraProperties
 
-ScrapeAccraProperties is a Scrapy + Playwright project for collecting rental property listings in the Greater Accra region from:
+ScrapeAccraProperties is a Scrapy + Playwright project for collecting rental listings in Greater Accra from:
 
 - Jiji Ghana
 - Meqasa
 
-The project has a two-step scraping flow:
+The scraper runs in two phases:
 
-1. Collect listing URLs from search/result pages
-2. Visit each listing URL and extract structured property data
+1. Collect listing URLs from search/result pages.
+2. Visit each listing URL and extract structured listing data.
 
-Data is stored in CSV files under `outputs/`.
+All outputs are written to CSV files under `outputs/`.
 
-## Features
+## Current Features
 
-- Headless browser scraping via `scrapy-playwright` (for JS-rendered pages)
-- Interactive terminal runner (`run.py`) to choose scraping mode and parameters
-- Parallel spider runs for Jiji and Meqasa
-- Incremental CSV persistence with URL de-duplication
-- Resume mode that scrapes only missing listings
-- Real-time Rich progress UI and per-spider summary
-
-## Project Structure
-
-```text
-.
-├── property_bot/
-│   ├── settings.py
-│   └── spiders/
-│       ├── base_spider.py
-│       ├── jiji_urls.py
-│       ├── jiji_listing.py
-│       ├── meqasa_urls.py
-│       └── meqasa_listing.py
-├── outputs/
-│   ├── urls/
-│   └── data/
-├── run.py
-├── scrapy.cfg
-└── pyproject.toml
-```
+- JS-rendered scraping with `scrapy-playwright` (Chromium)
+- Interactive CLI runner in `main.py`
+- URL discovery and listing extraction for both sites
+- Incremental CSV writes with URL deduplication
+- Resume mode that queues only missing URLs
+- Rich progress UI with per-spider summaries
 
 ## Requirements
 
-- Python 3.12+
-- Chromium dependencies required by Playwright (OS-level)
+- Python `3.12+` (project currently uses `3.12`)
+- Chromium browser binaries for Playwright
+- OS libraries needed by Playwright on Linux
 
-Python dependencies are managed in `pyproject.toml`:
+Dependencies are defined in `pyproject.toml` and include:
 
 - `scrapy`
-- `playwright`
 - `scrapy-playwright`
+- `playwright`
 - `rich`
 - `pandas`
 
 ## Setup
 
-### 1. Create environment and install dependencies
+### 1. Install Python dependencies
 
 Using `uv` (recommended):
 
@@ -64,7 +45,7 @@ Using `uv` (recommended):
 uv sync
 ```
 
-Or with `pip`:
+Using `pip`:
 
 ```bash
 python -m venv .venv
@@ -78,101 +59,106 @@ pip install -e .
 python -m playwright install chromium
 ```
 
-If your OS needs extra system libraries:
+If required on your OS:
 
 ```bash
 python -m playwright install-deps chromium
 ```
 
-## How To Run
+## Interactive Usage (Recommended)
 
-### Interactive runner (recommended)
+Run:
 
 ```bash
-python run.py
+python main.py
 ```
 
-You will see:
+Or with `uv`:
 
-- `1` Collect listing URLs
-- `2` Scrape listing details
-- `3` Resume and scrape only missing listings
+```bash
+uv run python main.py
+```
 
-The runner allows you to configure page ranges, total listing/page limits, source CSV paths, and whether each spider should run.
+The menu offers:
 
-## Scraping Workflow
+- `Collect listing URLs`
+- `Scrape listing details`
+- `Resume listing scrape (missing URLs only)`
 
-### Step 1: Collect URLs
+For each action, you can choose:
 
-This runs one or both URL spiders:
+- `Jiji only`
+- `Meqasa only`
+- `Both Jiji and Meqasa`
 
-- `jiji_urls` -> writes `outputs/urls/jiji_urls.csv`
-- `meqasa_urls` -> writes `outputs/urls/meqasa_urls.csv`
+## Workflow
 
-#### Jiji URL modes (in runner)
+### 1. Collect URLs
 
-- Auto detect total pages
-- Fixed page count (`max_pages`)
-- From expected total listings (`total_listing`, converted to pages)
+Runs URL spiders and writes:
 
-#### Meqasa URL modes
+- `jiji_urls` -> `outputs/urls/jiji_urls.csv`
+- `meqasa_urls` -> `outputs/urls/meqasa_urls.csv`
 
-- Auto detect total pages
-- Fixed page count (`total_pages`)
+URL-collection options:
 
-### Step 2: Scrape listing pages
+- Jiji: `start_page` + auto detect, `max_pages`, or `total_listing`
+- Meqasa: `start_page` + auto detect or `total_pages`
 
-This runs one or both listing spiders:
+### 2. Scrape Listing Details
 
-- `jiji_listings` reads URL CSV (default `outputs/urls/jiji_urls.csv`) and writes `outputs/data/jiji_data.csv`
-- `meqasa_listings` reads URL CSV (default `outputs/urls/meqasa_urls.csv`) and writes `outputs/data/meqasa_data.csv`
+Runs listing spiders and writes:
 
-### Step 3: Resume missing listings
+- `jiji_listings` reads `outputs/urls/jiji_urls.csv` and writes `outputs/data/jiji_data.csv`
+- `meqasa_listings` reads `outputs/urls/meqasa_urls.csv` and writes `outputs/data/meqasa_data.csv`
 
-Resume mode compares URL CSVs vs already-scraped data CSVs and only queues URLs that are not in data outputs:
+### 3. Resume Missing Listings
 
-- Jiji compare: `outputs/urls/jiji_urls.csv` vs `outputs/data/jiji_data.csv` using `url`
-- Meqasa compare: `outputs/urls/meqasa_urls.csv` vs `outputs/data/meqasa_data.csv` using `url`
-
-Temporary queue files are generated during resume and removed after run:
+Resume mode compares URL CSVs to data CSVs using the `url` column and creates temporary queue files for unscraped URLs only:
 
 - `outputs/urls/jiji_resume_queue.csv`
 - `outputs/urls/meqasa_resume_queue.csv`
 
+Queue files are removed automatically after the run finishes.
+
+## Running Spiders Directly
+
+You can bypass the interactive runner and call spiders directly:
+
+```bash
+scrapy crawl jiji_urls -a start_page=1 -a max_pages=5
+scrapy crawl jiji_urls -a start_page=1 -a total_listing=200
+scrapy crawl meqasa_urls -a start_page=1 -a total_pages=5
+
+scrapy crawl jiji_listings -a csv_path=outputs/urls/jiji_urls.csv
+scrapy crawl meqasa_listings -a csv_path=outputs/urls/meqasa_urls.csv
+```
+
 ## Output Files
 
-The project auto-creates these folders if missing:
+Auto-created directories:
 
 - `outputs/urls/`
 - `outputs/data/`
 
-Typical output files:
+Primary outputs:
 
 - `outputs/urls/jiji_urls.csv`
 - `outputs/urls/meqasa_urls.csv`
 - `outputs/data/jiji_data.csv`
 - `outputs/data/meqasa_data.csv`
 
-Temporary (resume mode only):
+## Data Schema
 
-- `outputs/urls/jiji_resume_queue.csv`
-- `outputs/urls/meqasa_resume_queue.csv`
-
-## Data Schema (Current)
-
-### Jiji URL CSV
+### URL CSVs (`jiji_urls.csv`, `meqasa_urls.csv`)
 
 - `url`
 - `page`
 - `fetch_date`
 
-### Meqasa URL CSV
+### Jiji listing CSV (`jiji_data.csv`)
 
-- `url`
-- `page`
-- `fetch_date`
-
-### Jiji data CSV (key fields)
+Key fields:
 
 - `url`
 - `fetch_date`
@@ -182,11 +168,13 @@ Temporary (resume mode only):
 - `bedrooms`
 - `bathrooms`
 - `price`
-- `properties`
-- `amenities`
+- `properties` (serialized mapping)
+- `amenities` (serialized list)
 - `description`
 
-### Meqasa data CSV (key fields)
+### Meqasa listing CSV (`meqasa_data.csv`)
+
+Base fields:
 
 - `url`
 - `Title`
@@ -194,49 +182,53 @@ Temporary (resume mode only):
 - `Rate`
 - `Description`
 - `fetch_date`
-- Additional table-derived columns from listing detail pages
 
-## Running Spiders Directly (Optional)
+Additional columns are extracted from listing detail tables and can vary by listing.
 
-You can run spiders without the interactive menu:
+## Project Structure
 
-```bash
-scrapy crawl jiji_urls -a start_page=1 -a max_pages=5
-scrapy crawl meqasa_urls -a start_page=1 -a total_pages=5
-
-scrapy crawl jiji_listings -a csv_path=outputs/urls/jiji_urls.csv
-scrapy crawl meqasa_listings -a csv_path=outputs/urls/meqasa_urls.csv
+```text
+.
+├── main.py
+├── property_bot/
+│   ├── settings.py
+│   └── spiders/
+│       ├── base_spider.py
+│       ├── jiji_urls.py
+│       ├── jiji_listing.py
+│       ├── meqasa_urls.py
+│       └── meqasa_listing.py
+├── outputs/
+│   ├── urls/
+│   └── data/
+├── scrapy.cfg
+├── pyproject.toml
+└── README.md
 ```
 
 ## Configuration Notes
 
-Key behavior in `property_bot/settings.py`:
+Highlights from `property_bot/settings.py`:
 
 - `ROBOTSTXT_OBEY = True`
-- Asyncio Twisted reactor for Playwright
-- High concurrency + short delays
-- Request aborting for heavy assets (images/fonts/media/stylesheet)
-- Headless Chromium launch args optimized for scraping speed
-- Retries enabled for transient failures (including `403`)
-
-## Operational Notes
-
-- Existing rows are used for URL de-duplication by each spider before writing.
-- URL and listing spiders can be launched together from the runner.
-- CSV rows are written with full quoting to reduce malformed-row issues when fields contain commas/newlines.
-- Logs are intentionally minimized in settings for cleaner terminal output.
+- Asyncio reactor enabled for Playwright integration
+- High concurrency with short delays and autothrottle
+- Asset blocking for heavy resource types (images/media/fonts/stylesheet)
+- Chromium launch options tuned for headless scraping
+- Retries enabled for transient HTTP failures (including `403`)
 
 ## Troubleshooting
 
-- `No URLs found in ...csv`: run URL collection first or provide the correct `csv_path`.
-- Playwright launch/browser errors: ensure Chromium is installed with `python -m playwright install chromium`.
-- Empty/partial extraction: source sites can change HTML structures; selectors in spiders may need updates.
+- `No URLs found in ...csv`: run URL collection first or pass the correct `csv_path`.
+- Browser launch failures: run `python -m playwright install chromium`.
+- Linux dependency errors: run `python -m playwright install-deps chromium`.
+- Empty/partial fields: target site HTML changed and selectors may need updates.
 
 ## Legal and Responsible Use
 
-- Review and respect each target site's Terms of Service and `robots.txt`.
-- Scrape responsibly (frequency, load, and data usage).
-- Use collected data in compliance with applicable laws and privacy requirements.
+- Review and respect target site Terms of Service and `robots.txt`.
+- Keep request volume and crawl frequency reasonable.
+- Use scraped data in line with applicable laws and privacy obligations.
 
 ## License
 

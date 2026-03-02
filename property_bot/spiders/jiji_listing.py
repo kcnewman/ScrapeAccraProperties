@@ -4,7 +4,6 @@ from datetime import datetime
 from pathlib import Path
 
 import scrapy
-from scrapy_playwright.page import PageMethod
 
 from .base_spider import PropertyBaseSpider
 
@@ -15,6 +14,19 @@ class JijiListingSpider(PropertyBaseSpider):
     name = "jiji_listings"
     OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "jiji_data.csv"
     URL_FIELD = "url"
+    OUTPUT_FIELDS = (
+        "url",
+        "fetch_date",
+        "title",
+        "location",
+        "house_type",
+        "bedrooms",
+        "bathrooms",
+        "price",
+        "properties",
+        "amenities",
+        "description",
+    )
 
     def __init__(self, csv_path="outputs/urls/jiji_urls.csv", *args, **kwargs):
         super().__init__(*args, **kwargs)
