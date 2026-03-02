@@ -21,6 +21,7 @@ from property_bot.spiders.meqasa_urls import MeqasaUrlSpider
 os.environ.setdefault("SCRAPY_SETTINGS_MODULE", "property_bot.settings")
 
 PROJECT_ROOT = Path(__file__).resolve().parent
+JIJI_RAW_OUTPUT_CSV = PROJECT_ROOT / "outputs" / "data" / "raw.csv"
 console = Console()
 
 
@@ -216,6 +217,32 @@ def run_spiders(jobs: list[tuple[type[Spider], dict[str, Any]]]) -> None:
     process.start(stop_after_crawl=True)
 
 
+def run_jiji_cleaning() -> None:
+    try:
+        from clean import clean_jiji_csv
+    except Exception as exc:
+        console.print(f"[red]Skipping Jiji cleaning:[/] unable to load clean.py ({exc})")
+        return
+
+    jiji_data_csv = SITE_CONFIGS["jiji"].data_csv
+    if not jiji_data_csv.exists():
+        console.print(
+            f"[yellow]Skipping Jiji cleaning: {relpath(jiji_data_csv)} not found.[/]"
+        )
+        return
+
+    try:
+        cleaned_df = clean_jiji_csv(jiji_data_csv, JIJI_RAW_OUTPUT_CSV)
+    except Exception as exc:
+        console.print(f"[red]Jiji cleaning failed:[/] {exc}")
+        return
+
+    console.print(
+        f"[green]Jiji cleaned CSV saved:[/] {relpath(JIJI_RAW_OUTPUT_CSV)}"
+        f" ({len(cleaned_df):,} rows)"
+    )
+
+
 def prompt_jiji_url_args() -> dict[str, Any]:
     start_page = ask_int("Jiji start page", default=1, min_value=1)
     mode = ask_choice(
@@ -272,6 +299,7 @@ def run_listing_scrape(resume: bool) -> None:
     sites = choose_sites()
     jobs: list[tuple[type[Spider], dict[str, Any]]] = []
     cleanup_paths: list[Path] = []
+    jiji_job_scheduled = False
 
     if resume:
         use_defaults = ask_yes_no(
@@ -309,6 +337,8 @@ def run_listing_scrape(resume: bool) -> None:
                     (site.listing_spider, {"csv_path": str(site.resume_queue_csv)})
                 )
                 cleanup_paths.append(site.resume_queue_csv)
+                if site.key == "jiji":
+                    jiji_job_scheduled = True
 
         console.print(summary)
 
@@ -321,6 +351,8 @@ def run_listing_scrape(resume: bool) -> None:
                 )
                 continue
             jobs.append((site.listing_spider, {"csv_path": str(urls_csv)}))
+            if site.key == "jiji":
+                jiji_job_scheduled = True
 
     try:
         run_spiders(jobs)
@@ -329,6 +361,9 @@ def run_listing_scrape(resume: bool) -> None:
             if temp_file.exists():
                 temp_file.unlink()
 
+    if jiji_job_scheduled:
+        run_jiji_cleaning()
+
 
 def print_header() -> None:
     console.print(
@@ -336,7 +371,8 @@ def print_header() -> None:
             "Accra Property Scraper\n"
             "- Interactive multi-spider runner\n"
             "- Listing resume mode queues only missing URLs\n"
-            "- CSV writes happen item-by-item during crawl",
+            "- CSV writes happen item-by-item during crawl\n"
+            "- Jiji listings are cleaned to outputs/data/raw.csv",
             title="main.py",
             border_style="cyan",
         )

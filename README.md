@@ -112,6 +112,12 @@ Runs listing spiders and writes:
 - `jiji_listings` reads `outputs/urls/jiji_urls.csv` and writes `outputs/data/jiji_data.csv`
 - `meqasa_listings` reads `outputs/urls/meqasa_urls.csv` and writes `outputs/data/meqasa_data.csv`
 
+After a Jiji listing scrape finishes, `clean.py` is run automatically and writes the cleaned Jiji dataset to:
+
+- `outputs/data/raw.csv`
+
+Note: this cleaning stage is currently Jiji-only.
+
 ### 3. Resume Missing Listings
 
 Resume mode compares URL CSVs to data CSVs using the `url` column and creates temporary queue files for unscraped URLs only:
@@ -147,6 +153,7 @@ Primary outputs:
 - `outputs/urls/meqasa_urls.csv`
 - `outputs/data/jiji_data.csv`
 - `outputs/data/meqasa_data.csv`
+- `outputs/data/raw.csv` (cleaned Jiji data)
 
 ## Data Schema
 
